@@ -20,33 +20,29 @@ func main() {
 			"And even some more",
 			"And now yet another",
 			"And how about even one more to see",
+			"And just so we have a long enough song...",
+			"Here we go to repeat.",
+			"Hello world",
+			"These are my song lyrics",
+			"Let's add some more",
+			"And even some more",
+			"And now yet another",
+			"And how about even one more to see",
+			"And just so we have a long enough song...",
+			"Here we go to repeat",
+			"Just kidding we're done.",
 		},
 	}
 
-	/*
-				scroll := container.NewVScroll(widget.NewRichTextFromMarkdown(`# Heading
-			* Bullet point 1
-			* Bullet point 2
-			* Bullet point 3
-
-			## Subheading
-
-			* More content 1
-			* More content 2`))
-
-
-		win.SetContent(container.NewBorder(widget.NewButton("Scroll", func() {
-			scroll.Offset = fyne.NewPos(0, 20)
-			scroll.Refresh()
-		}), nil, nil, nil, scroll))
-
-	*/
 	win.SetContent(l)
 	win.Resize(fyne.NewSize(200, 300))
 
+	tick := time.NewTicker(1 * time.Second)
 	go func() {
-		time.Sleep(1 * time.Second)
-		l.NextLine()
+		for {
+			<-tick.C
+			l.NextLine()
+		}
 	}()
 
 	win.ShowAndRun()

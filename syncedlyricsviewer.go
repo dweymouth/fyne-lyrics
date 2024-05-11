@@ -5,6 +5,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -26,12 +27,28 @@ func (s *SyncedLyricsViewer) SetCurrentLine(line int) {
 }
 
 func (s *SyncedLyricsViewer) NextLine() {
-	if s.anim == nil {
-		s.anim = fyne.NewAnimation(100*time.Millisecond, func(f float32) {
-			s.scroll.Offset.Y += f * 15.0
-			s.scroll.Refresh()
-		})
+	if s.vbox == nil {
+		return // renderer not created yet
 	}
+	if s.currentLine == len(s.Lines)-1 {
+		return // can't advance
+	}
+
+	if s.anim != nil {
+		s.anim.Stop()
+	}
+
+	scrollDist := s.vbox.Objects[s.currentLine].(*widget.RichText).Size().Height
+	scrollDist += theme.Padding()
+	origOffset := s.scroll.Offset.Y
+	s.anim = fyne.NewAnimation(100*time.Millisecond, func(f float32) {
+		s.scroll.Offset.Y = origOffset + f*scrollDist
+		s.scroll.Refresh()
+		if f == 1.0 {
+			s.currentLine++
+		}
+	})
+
 	s.anim.Start()
 }
 
