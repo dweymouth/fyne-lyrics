@@ -71,13 +71,27 @@ func (s *SyncedLyricsViewer) Refresh() {
 	s.BaseWidget.Refresh()
 }
 
+func (s *SyncedLyricsViewer) MinSize() fyne.Size {
+	// overridden because NoScroll will have minSize encompass the full lyrics
+	minHeight := s.singleLineLyricHeight*3 + theme.Padding()*2
+	return fyne.NewSize(s.BaseWidget.MinSize().Width, minHeight)
+}
+
 func (s *SyncedLyricsViewer) Resize(size fyne.Size) {
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if s.scroll != nil {
-		s.scroll.Resize(size)
-	}
+	s.updateSpacerSize(size)
+	s.mutex.Unlock()
+
 	s.BaseWidget.Resize(size)
+}
+
+func (s *SyncedLyricsViewer) updateSpacerSize(size fyne.Size) {
+	if s.vbox == nil {
+		return // renderer not created yet
+	}
+
+	topSpaceHeight := theme.Padding() + (size.Height-s.singleLineLyricHeight)/2
+	s.vbox.Objects[0].(*vSpace).Height = topSpaceHeight
 }
 
 func (s *SyncedLyricsViewer) updateContent() {
@@ -87,10 +101,10 @@ func (s *SyncedLyricsViewer) updateContent() {
 
 	l := len(s.vbox.Objects)
 	if l == 0 {
-		topSpaceHeight := theme.Padding()*2 + (s.Size().Height-s.singleLineLyricHeight)/2
-		s.vbox.Objects = append(s.vbox.Objects, NewVSpace(topSpaceHeight))
+		s.vbox.Objects = append(s.vbox.Objects, NewVSpace(0))
 		l = 1
 	}
+	s.updateSpacerSize(s.Size())
 	//endSpacer := s.vbox.Objects[l-1]
 	for i, line := range s.Lines {
 		if (i + 1) < l {

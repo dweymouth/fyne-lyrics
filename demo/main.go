@@ -12,26 +12,25 @@ func main() {
 	app := app.New()
 	win := app.NewWindow("Synced Lyrics Demo")
 
-	l := &fynesyncedlyrics.SyncedLyricsViewer{
-		Lines: []string{
-			"Hello world",
-			"These are my song lyrics",
-			"Let's add some more",
-			"And even some more",
-			"And now yet another",
-			"And how about even one more to see",
-			"And just so we have a long enough song...",
-			"Here we go to repeat.",
-			"Hello world",
-			"These are my song lyrics",
-			"Let's add some more",
-			"And even some more",
-			"And now yet another",
-			"And how about even one more to see",
-			"And just so we have a long enough song...",
-			"Here we go to repeat",
-			"Just kidding we're done.",
-		},
+	l := fynesyncedlyrics.NewSyncedLyricsViewer()
+	l.Lines = []string{
+		"Hello world",
+		"These are my song lyrics",
+		"Let's add some more",
+		"And even some more",
+		"And now yet another",
+		"And how about even one more to see",
+		"And just so we have a long enough song...",
+		"Here we go to repeat.",
+		"Hello world",
+		"These are my song lyrics",
+		"Let's add some more",
+		"And even some more",
+		"And now yet another",
+		"And how about even one more to see",
+		"And just so we have a long enough song...",
+		"Here we go to repeat",
+		"Just kidding we're done.",
 	}
 
 	win.SetContent(l)
