@@ -40,11 +40,14 @@ func (s *SyncedLyricsViewer) SetCurrentLine(line int) {
 }
 
 func (s *SyncedLyricsViewer) NextLine() {
+	if s.vbox == nil {
+		return // no renderer yet
+	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.vbox == nil /*no renderer yet*/ || s.currentLine == len(s.Lines)-1 {
-		return
+	if s.currentLine == len(s.Lines) {
+		return // already at last line
 	}
 	s.currentLine++
 	s.checkStopAnimation()
@@ -57,27 +60,7 @@ func (s *SyncedLyricsViewer) NextLine() {
 		nextLine = s.vbox.Objects[s.currentLine].(*widget.RichText)
 	}
 
-	scrollDist := nextLine.Size().Height
-	scrollDist += theme.Padding()
-	origOffset := s.scroll.Offset.Y
-	var alreadyUpdated bool
-	s.anim = fyne.NewAnimation(100*time.Millisecond, func(f float32) {
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
-		s.scroll.Offset.Y = origOffset + f*scrollDist
-		s.scroll.Refresh()
-		if !alreadyUpdated && f >= 0.5 {
-			if nextLine != nil {
-				s.setLineColor(nextLine, theme.ColorNameForeground)
-			}
-			if prevLine != nil {
-				s.setLineColor(prevLine, theme.ColorNameDisabled)
-			}
-			alreadyUpdated = true
-		}
-	})
-	s.anim.Curve = fyne.AnimationEaseInOut
-
+	s.anim = s.createScrollAnimation(prevLine, nextLine)
 	s.anim.Start()
 }
 
@@ -103,22 +86,59 @@ func (s *SyncedLyricsViewer) updateContent() {
 	}
 
 	l := len(s.vbox.Objects)
+	if l == 0 {
+		topSpaceHeight := theme.Padding()*2 + (s.Size().Height-s.singleLineLyricHeight)/2
+		s.vbox.Objects = append(s.vbox.Objects, NewVSpace(topSpaceHeight))
+		l = 1
+	}
 	//endSpacer := s.vbox.Objects[l-1]
 	for i, line := range s.Lines {
-		if i < l {
-			rt := s.vbox.Objects[i].(*widget.RichText)
-			ts := rt.Segments[0].(*widget.TextSegment)
-			ts.Text = line
-			rt.Refresh()
+		if (i + 1) < l {
+			s.setLineText(s.vbox.Objects[i+1].(*widget.RichText), line)
 		} else {
 			s.vbox.Objects = append(s.vbox.Objects, s.newLyricLine(line))
 		}
 	}
-	for i := len(s.Lines); i < l; i++ {
+	for i := len(s.Lines) + 1; i < l; i++ {
 		s.vbox.Objects[i] = nil
 	}
-	s.vbox.Objects = s.vbox.Objects[:len(s.Lines)]
+	s.vbox.Objects = s.vbox.Objects[:len(s.Lines)+1]
 	s.vbox.Refresh()
+}
+
+func (s *SyncedLyricsViewer) createScrollAnimation(currentLine, nextLine *widget.RichText) *fyne.Animation {
+	// calculate total scroll distance for the animation
+	scrollDist := theme.Padding()
+	if currentLine != nil {
+		scrollDist += currentLine.Size().Height / 2
+	} else {
+		scrollDist += s.singleLineLyricHeight / 2
+	}
+	if nextLine != nil {
+		scrollDist += nextLine.Size().Height / 2
+	} else {
+		scrollDist += s.singleLineLyricHeight / 2
+	}
+
+	origOffset := s.scroll.Offset.Y
+	var alreadyUpdated bool
+	anim := fyne.NewAnimation(100*time.Millisecond, func(f float32) {
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+		s.scroll.Offset.Y = origOffset + f*scrollDist
+		s.scroll.Refresh()
+		if !alreadyUpdated && f >= 0.5 {
+			if nextLine != nil {
+				s.setLineColor(nextLine, theme.ColorNameForeground)
+			}
+			if currentLine != nil {
+				s.setLineColor(currentLine, theme.ColorNameDisabled)
+			}
+			alreadyUpdated = true
+		}
+	})
+	anim.Curve = fyne.AnimationEaseInOut
+	return anim
 }
 
 func (s *SyncedLyricsViewer) newLyricLine(text string) *widget.RichText {
@@ -132,16 +152,23 @@ func (s *SyncedLyricsViewer) newLyricLine(text string) *widget.RichText {
 	return rt
 }
 
+func (s *SyncedLyricsViewer) setLineText(line *widget.RichText, text string) {
+	line.Segments[0].(*widget.TextSegment).Text = text
+	line.Refresh()
+}
+
 func (s *SyncedLyricsViewer) setLineColor(rt *widget.RichText, colorName fyne.ThemeColorName) {
 	rt.Segments[0].(*widget.TextSegment).Style.ColorName = colorName
 	rt.Refresh()
 }
 
-func (s *SyncedLyricsViewer) checkStopAnimation() {
+func (s *SyncedLyricsViewer) checkStopAnimation() bool {
 	if s.anim != nil {
 		s.anim.Stop()
 		s.anim = nil
+		return true
 	}
+	return false
 }
 
 func (s *SyncedLyricsViewer) CreateRenderer() fyne.WidgetRenderer {
@@ -173,15 +200,21 @@ func (n *NoScroll) Scrolled(_ *fyne.ScrollEvent) {
 }
 
 type vSpace struct {
-	layout.Spacer
+	widget.BaseWidget
 
 	Height float32
 }
 
 func NewVSpace(height float32) *vSpace {
-	return &vSpace{Height: height}
+	v := &vSpace{Height: height}
+	v.ExtendBaseWidget(v)
+	return v
 }
 
 func (v *vSpace) MinSize() fyne.Size {
 	return fyne.NewSize(0, v.Height)
+}
+
+func (v *vSpace) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(layout.NewSpacer())
 }
