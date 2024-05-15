@@ -18,12 +18,16 @@ type SyncedLyricsViewer struct {
 	Lines []string
 
 	// one-indexed - 0 means before the first line
+	// during an animation, currentLine is the line
+	// that will be scrolled when the animation is finished
 	currentLine int
 
 	singleLineLyricHeight float32
 
-	scroll          *NoScroll
-	vbox            *fyne.Container
+	scroll *NoScroll
+	vbox   *fyne.Container
+
+	// nil when an animation is not currently running
 	anim            *fyne.Animation
 	animStartOffset float32
 }
@@ -34,12 +38,25 @@ func NewSyncedLyricsViewer() *SyncedLyricsViewer {
 	return s
 }
 
+// SetCurrentLine sets the current line that the lyric viewer is scrolled to.
+// Argument is *one-indexed* - SetCurrentLine(0) means setting
+// the scroll to be before the first line.
 func (s *SyncedLyricsViewer) SetCurrentLine(line int) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.currentLine = line + 1
+	if s.checkStopAnimation() {
+		// we were in the middle of animation
+		// make sure prev line is right color
+		s.setLineColor(s.vbox.Objects[s.currentLine-1].(*widget.RichText), theme.ColorNameDisabled)
+	}
+	s.setLineColor(s.vbox.Objects[s.currentLine].(*widget.RichText), theme.ColorNameDisabled)
+	s.currentLine = line
+	s.setLineColor(s.vbox.Objects[s.currentLine].(*widget.RichText), theme.ColorNameForeground)
+	s.scroll.Offset = fyne.NewPos(0, s.offsetForLine(s.currentLine))
+	s.scroll.Refresh()
 }
 
+// NextLine advances the lyric viewer to the next line with an animated scroll.
 func (s *SyncedLyricsViewer) NextLine() {
 	if s.vbox == nil {
 		return // no renderer yet
@@ -143,7 +160,7 @@ func (s *SyncedLyricsViewer) setupScrollAnimation(currentLine, nextLine *widget.
 
 	s.animStartOffset = s.scroll.Offset.Y
 	var alreadyUpdated bool
-	s.anim = fyne.NewAnimation(100*time.Millisecond, func(f float32) {
+	s.anim = fyne.NewAnimation(120*time.Millisecond, func(f float32) {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 		s.scroll.Offset.Y = s.animStartOffset + f*scrollDist
