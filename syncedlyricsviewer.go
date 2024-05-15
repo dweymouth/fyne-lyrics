@@ -168,10 +168,11 @@ func (s *SyncedLyricsViewer) offsetForLine(lineNum int /*one-indexed*/) float32 
 	if lineNum == 0 {
 		return 0
 	}
-	offset := theme.Padding() + s.singleLineLyricHeight/2
-	for i := 1; i < lineNum; i++ {
+	pad := theme.Padding()
+	offset := pad + s.singleLineLyricHeight/2
+	for i := 1; i <= lineNum; i++ {
 		if i > 1 {
-			offset += s.vbox.Objects[i-1].MinSize().Height/2 + theme.Padding()
+			offset += s.vbox.Objects[i-1].MinSize().Height/2 + pad
 		}
 		offset += s.vbox.Objects[i].MinSize().Height / 2
 	}
