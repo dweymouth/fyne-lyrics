@@ -22,9 +22,10 @@ type SyncedLyricsViewer struct {
 
 	singleLineLyricHeight float32
 
-	scroll *NoScroll
-	vbox   *fyne.Container
-	anim   *fyne.Animation
+	scroll          *NoScroll
+	vbox            *fyne.Container
+	anim            *fyne.Animation
+	animStartOffset float32
 }
 
 func NewSyncedLyricsViewer() *SyncedLyricsViewer {
@@ -60,7 +61,7 @@ func (s *SyncedLyricsViewer) NextLine() {
 		nextLine = s.vbox.Objects[s.currentLine].(*widget.RichText)
 	}
 
-	s.anim = s.createScrollAnimation(prevLine, nextLine)
+	s.setupScrollAnimation(prevLine, nextLine)
 	s.anim.Start()
 }
 
@@ -79,10 +80,16 @@ func (s *SyncedLyricsViewer) MinSize() fyne.Size {
 
 func (s *SyncedLyricsViewer) Resize(size fyne.Size) {
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.updateSpacerSize(size)
-	s.mutex.Unlock()
-
 	s.BaseWidget.Resize(size)
+	if s.anim == nil {
+		s.scroll.Offset = fyne.NewPos(0, s.offsetForLine(s.currentLine))
+		s.scroll.Refresh()
+	} else {
+		// animation is running - update its reference scroll pos
+		s.animStartOffset = s.offsetForLine(s.currentLine - 1)
+	}
 }
 
 func (s *SyncedLyricsViewer) updateSpacerSize(size fyne.Size) {
@@ -120,7 +127,7 @@ func (s *SyncedLyricsViewer) updateContent() {
 	s.vbox.Refresh()
 }
 
-func (s *SyncedLyricsViewer) createScrollAnimation(currentLine, nextLine *widget.RichText) *fyne.Animation {
+func (s *SyncedLyricsViewer) setupScrollAnimation(currentLine, nextLine *widget.RichText) {
 	// calculate total scroll distance for the animation
 	scrollDist := theme.Padding()
 	if currentLine != nil {
@@ -134,12 +141,12 @@ func (s *SyncedLyricsViewer) createScrollAnimation(currentLine, nextLine *widget
 		scrollDist += s.singleLineLyricHeight / 2
 	}
 
-	origOffset := s.scroll.Offset.Y
+	s.animStartOffset = s.scroll.Offset.Y
 	var alreadyUpdated bool
-	anim := fyne.NewAnimation(100*time.Millisecond, func(f float32) {
+	s.anim = fyne.NewAnimation(100*time.Millisecond, func(f float32) {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
-		s.scroll.Offset.Y = origOffset + f*scrollDist
+		s.scroll.Offset.Y = s.animStartOffset + f*scrollDist
 		s.scroll.Refresh()
 		if !alreadyUpdated && f >= 0.5 {
 			if nextLine != nil {
@@ -150,9 +157,25 @@ func (s *SyncedLyricsViewer) createScrollAnimation(currentLine, nextLine *widget
 			}
 			alreadyUpdated = true
 		}
+		if f == 1 /*end of animation*/ {
+			s.anim = nil
+		}
 	})
-	anim.Curve = fyne.AnimationEaseInOut
-	return anim
+	s.anim.Curve = fyne.AnimationEaseInOut
+}
+
+func (s *SyncedLyricsViewer) offsetForLine(lineNum int /*one-indexed*/) float32 {
+	if lineNum == 0 {
+		return 0
+	}
+	offset := theme.Padding() + s.singleLineLyricHeight/2
+	for i := 1; i < lineNum; i++ {
+		if i > 1 {
+			offset += s.vbox.Objects[i-1].MinSize().Height/2 + theme.Padding()
+		}
+		offset += s.vbox.Objects[i].MinSize().Height / 2
+	}
+	return offset
 }
 
 func (s *SyncedLyricsViewer) newLyricLine(text string) *widget.RichText {
