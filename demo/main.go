@@ -32,7 +32,7 @@ func main() {
 	app := app.New()
 	win := app.NewWindow("Synced Lyrics Demo")
 
-	l := fynelyrics.NewSyncedLyricsViewer()
+	l := fynelyrics.NewLyricsViewer()
 	l.SetLyrics(lyrics, true /*synced*/)
 
 	win.SetContent(l)

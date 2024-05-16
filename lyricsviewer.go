@@ -38,8 +38,8 @@ type LyricsViewer struct {
 	animStartOffset float32
 }
 
-// NewSyncedLyricsViewer returns a new lyrics viewer.
-func NewSyncedLyricsViewer() *LyricsViewer {
+// NewLyricsViewer returns a new lyrics viewer.
+func NewLyricsViewer() *LyricsViewer {
 	s := &LyricsViewer{}
 	s.ExtendBaseWidget(s)
 	return s
