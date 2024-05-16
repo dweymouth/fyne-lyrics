@@ -10,15 +10,13 @@ l.SetLyrics([]string{"My song lyrics", "And some more", "And another"}, true /*s
 myMediaPlayer.OnPositionUpdate(func(...) {
     // When updating playback position in your gui, check if the playback
     // time has advanced to the next lyric's start time, if so...
-    // No-op if the widget is in unsynced mode
-    l.NextLine() // animates the scroll
+    l.NextLine() // animates the scroll. No-op in unsynced mode.
 })
 
 myMediaPlayer.OnSeeked(func(...) {
     // When user seeks the song, check the new position against the lyric line
     // start times, and if needed...
-    // No-op if the widget is in unsynced mode
-    l.SetCurrentLine(n /*line number to display*/) // scroll not animated
+    l.SetCurrentLine(n /*line number to display*/) // scroll not animated. No-op in unsynced mode.
 })
 
 myMediaPlayer.OnNextSong(func(...) {
