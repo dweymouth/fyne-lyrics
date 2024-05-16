@@ -13,7 +13,7 @@ func main() {
 	win := app.NewWindow("Synced Lyrics Demo")
 
 	l := fynesyncedlyrics.NewSyncedLyricsViewer()
-	l.Lines = []string{
+	l.SetLyrics([]string{
 		"Hello world",
 		"These are my song lyrics",
 		"Let's add some more",
@@ -31,7 +31,7 @@ func main() {
 		"And just so we have a long enough song...",
 		"Here we go to repeat",
 		"Just kidding we're done.",
-	}
+	})
 
 	win.SetContent(l)
 	win.Resize(fyne.NewSize(200, 300))

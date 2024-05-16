@@ -38,6 +38,14 @@ func NewSyncedLyricsViewer() *SyncedLyricsViewer {
 	return s
 }
 
+func (s *SyncedLyricsViewer) SetLyrics(lines []string) {
+	s.mutex.Lock()
+	s.Lines = lines
+	s.mutex.Unlock()
+
+	s.Refresh()
+}
+
 // SetCurrentLine sets the current line that the lyric viewer is scrolled to.
 // Argument is *one-indexed* - SetCurrentLine(0) means setting
 // the scroll to be before the first line.
@@ -74,7 +82,7 @@ func (s *SyncedLyricsViewer) NextLine() {
 	if s.currentLine > 1 {
 		prevLine = s.vbox.Objects[s.currentLine-1].(*widget.RichText)
 	}
-	if s.currentLine < len(s.Lines) {
+	if s.currentLine <= len(s.Lines) {
 		nextLine = s.vbox.Objects[s.currentLine].(*widget.RichText)
 	}
 
@@ -116,6 +124,9 @@ func (s *SyncedLyricsViewer) updateSpacerSize(size fyne.Size) {
 
 	topSpaceHeight := theme.Padding() + (size.Height-s.singleLineLyricHeight)/2
 	s.vbox.Objects[0].(*vSpace).Height = topSpaceHeight
+	// end spacer only needs to be big enough - can't be too big
+	// so use a very simple height calculation
+	s.vbox.Objects[len(s.vbox.Objects)-1].(*vSpace).Height = size.Height
 }
 
 func (s *SyncedLyricsViewer) updateContent() {
@@ -125,15 +136,19 @@ func (s *SyncedLyricsViewer) updateContent() {
 
 	l := len(s.vbox.Objects)
 	if l == 0 {
-		s.vbox.Objects = append(s.vbox.Objects, NewVSpace(0))
-		l = 1
+		s.vbox.Objects = append(s.vbox.Objects, NewVSpace(0), NewVSpace(0))
+		l = 2
 	}
 	s.updateSpacerSize(s.Size())
-	//endSpacer := s.vbox.Objects[l-1]
+	endSpacer := s.vbox.Objects[l-1]
 	for i, line := range s.Lines {
-		if (i + 1) < l {
+		if (i + 1) < l-1 {
 			s.setLineText(s.vbox.Objects[i+1].(*widget.RichText), line)
+		} else if (i + 1) < l {
+			// replacing end spacer (last element in Objects) with a new richtext
+			s.vbox.Objects[i+1] = s.newLyricLine(line)
 		} else {
+			// extending the Objects slice
 			s.vbox.Objects = append(s.vbox.Objects, s.newLyricLine(line))
 		}
 	}
@@ -141,6 +156,7 @@ func (s *SyncedLyricsViewer) updateContent() {
 		s.vbox.Objects[i] = nil
 	}
 	s.vbox.Objects = s.vbox.Objects[:len(s.Lines)+1]
+	s.vbox.Objects = append(s.vbox.Objects, endSpacer)
 	s.vbox.Refresh()
 }
 
