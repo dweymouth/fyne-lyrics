@@ -1,2 +1,2 @@
 # fyne-synced-lyrics
-A synced lyrics widget for Fyne
+A lyrics widget for Fyne supporting synced and unsynced mode.
