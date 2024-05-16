@@ -176,7 +176,7 @@ func (s *SyncedLyricsViewer) setupScrollAnimation(currentLine, nextLine *widget.
 
 	s.animStartOffset = s.scroll.Offset.Y
 	var alreadyUpdated bool
-	s.anim = fyne.NewAnimation(120*time.Millisecond, func(f float32) {
+	s.anim = fyne.NewAnimation(140*time.Millisecond, func(f float32) {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 		s.scroll.Offset.Y = s.animStartOffset + f*scrollDist
