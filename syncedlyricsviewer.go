@@ -11,11 +11,17 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-type SyncedLyricsViewer struct {
+// LyricsViewer is a widget for displaying song lyrics.
+// It supports synced and unsynced mode. In synced mode, the active line
+// is highlighted and the widget can advance to the next line
+// with an animated scroll. In unsynced mode all lyrics are shown
+// in the foreground color and the user is allowed to scroll freely.
+type LyricsViewer struct {
 	widget.BaseWidget
 	mutex sync.Mutex
 
-	Lines []string
+	lines  []string
+	synced bool
 
 	// one-indexed - 0 means before the first line
 	// during an animation, currentLine is the line
@@ -32,204 +38,224 @@ type SyncedLyricsViewer struct {
 	animStartOffset float32
 }
 
-func NewSyncedLyricsViewer() *SyncedLyricsViewer {
-	s := &SyncedLyricsViewer{}
+// NewSyncedLyricsViewer returns a new lyrics viewer.
+func NewSyncedLyricsViewer() *LyricsViewer {
+	s := &LyricsViewer{}
 	s.ExtendBaseWidget(s)
 	return s
 }
 
-func (s *SyncedLyricsViewer) SetLyrics(lines []string) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.Lines = lines
-	s.currentLine = 0
-	s.updateContent()
+// SetLyrics sets the lyrics and also resets the current line to 0 if synced.
+func (l *LyricsViewer) SetLyrics(lines []string, synced bool) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	l.lines = lines
+	l.synced = synced
+	l.currentLine = 0
+	if l.scroll != nil {
+		direction := container.ScrollVerticalOnly
+		if synced {
+			direction = container.ScrollNone
+		}
+		l.scroll.Direction = direction
+	}
+	l.updateContent()
 }
 
 // SetCurrentLine sets the current line that the lyric viewer is scrolled to.
-// Argument is *one-indexed* - SetCurrentLine(0) means setting
-// the scroll to be before the first line.
-func (s *SyncedLyricsViewer) SetCurrentLine(line int) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if s.checkStopAnimation() && s.currentLine > 1 {
+// Argument is *one-indexed* - SetCurrentLine(0) means setting the scroll to be
+// before the first line. In unsynced mode this is a no-op. This function is
+// typically called when the user has seeked the playing song to a new position.
+func (l *LyricsViewer) SetCurrentLine(line int) {
+	if l.vbox == nil || !l.synced {
+		l.currentLine = line
+		return // renderer not created yet or unsynced mode
+	}
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	if l.checkStopAnimation() && l.currentLine > 1 {
 		// we were in the middle of animation
 		// make sure prev line is right color
-		s.setLineColor(s.vbox.Objects[s.currentLine-1].(*widget.RichText), theme.ColorNameDisabled, true)
+		l.setLineColor(l.vbox.Objects[l.currentLine-1].(*widget.RichText), theme.ColorNameDisabled, true)
 	}
-	s.setLineColor(s.vbox.Objects[s.currentLine].(*widget.RichText), theme.ColorNameDisabled, true)
-	s.currentLine = line
-	s.setLineColor(s.vbox.Objects[s.currentLine].(*widget.RichText), theme.ColorNameForeground, true)
-	s.scroll.Offset.Y = s.offsetForLine(s.currentLine)
-	s.scroll.Refresh()
+	l.setLineColor(l.vbox.Objects[l.currentLine].(*widget.RichText), theme.ColorNameDisabled, true)
+	l.currentLine = line
+	l.setLineColor(l.vbox.Objects[l.currentLine].(*widget.RichText), theme.ColorNameForeground, true)
+	l.scroll.Offset.Y = l.offsetForLine(l.currentLine)
+	l.scroll.Refresh()
 }
 
 // NextLine advances the lyric viewer to the next line with an animated scroll.
-func (s *SyncedLyricsViewer) NextLine() {
-	if s.vbox == nil {
-		return // no renderer yet
+// In unsynced mode this is a no-op.
+func (l *LyricsViewer) NextLine() {
+	if l.vbox == nil || !l.synced {
+		return // no renderer yet, or unsynced lyrics (no-op)
 	}
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 
-	if s.currentLine == len(s.Lines) {
+	if l.currentLine == len(l.lines) {
 		return // already at last line
 	}
-	if s.checkStopAnimation() {
+	if l.checkStopAnimation() {
 		// we were in the middle of animation - short-circuit it to completed
 		// make sure prev and current lines are right color and scrolled to the end
-		if s.currentLine > 1 {
-			s.setLineColor(s.vbox.Objects[s.currentLine-1].(*widget.RichText), theme.ColorNameDisabled, true)
+		if l.currentLine > 1 {
+			l.setLineColor(l.vbox.Objects[l.currentLine-1].(*widget.RichText), theme.ColorNameDisabled, true)
 		}
-		s.setLineColor(s.vbox.Objects[s.currentLine].(*widget.RichText), theme.ColorNameForeground, true)
-		s.scroll.Offset.Y = s.offsetForLine(s.currentLine)
+		l.setLineColor(l.vbox.Objects[l.currentLine].(*widget.RichText), theme.ColorNameForeground, true)
+		l.scroll.Offset.Y = l.offsetForLine(l.currentLine)
 	}
-	s.currentLine++
+	l.currentLine++
 
 	var prevLine, nextLine *widget.RichText
-	if s.currentLine > 1 {
-		prevLine = s.vbox.Objects[s.currentLine-1].(*widget.RichText)
+	if l.currentLine > 1 {
+		prevLine = l.vbox.Objects[l.currentLine-1].(*widget.RichText)
 	}
-	if s.currentLine <= len(s.Lines) {
-		nextLine = s.vbox.Objects[s.currentLine].(*widget.RichText)
+	if l.currentLine <= len(l.lines) {
+		nextLine = l.vbox.Objects[l.currentLine].(*widget.RichText)
 	}
 
-	s.setupScrollAnimation(prevLine, nextLine)
-	s.anim.Start()
+	l.setupScrollAnimation(prevLine, nextLine)
+	l.anim.Start()
 }
 
-func (s *SyncedLyricsViewer) Refresh() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.updateContent()
+func (l *LyricsViewer) Refresh() {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	l.updateContent()
 }
 
-func (s *SyncedLyricsViewer) MinSize() fyne.Size {
+func (l *LyricsViewer) MinSize() fyne.Size {
 	// overridden because NoScroll will have minSize encompass the full lyrics
-	minHeight := s.singleLineLyricHeight*3 + theme.Padding()*2
-	return fyne.NewSize(s.BaseWidget.MinSize().Width, minHeight)
+	minHeight := l.singleLineLyricHeight*3 + theme.Padding()*2
+	return fyne.NewSize(l.BaseWidget.MinSize().Width, minHeight)
 }
 
-func (s *SyncedLyricsViewer) Resize(size fyne.Size) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.updateSpacerSize(size)
-	s.BaseWidget.Resize(size)
-	if s.anim == nil {
-		s.scroll.Offset = fyne.NewPos(0, s.offsetForLine(s.currentLine))
-		s.scroll.Refresh()
+func (l *LyricsViewer) Resize(size fyne.Size) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	l.updateSpacerSize(size)
+	l.BaseWidget.Resize(size)
+	if l.anim == nil {
+		l.scroll.Offset = fyne.NewPos(0, l.offsetForLine(l.currentLine))
+		l.scroll.Refresh()
 	} else {
 		// animation is running - update its reference scroll pos
-		s.animStartOffset = s.offsetForLine(s.currentLine - 1)
+		l.animStartOffset = l.offsetForLine(l.currentLine - 1)
 	}
 }
 
-func (s *SyncedLyricsViewer) updateSpacerSize(size fyne.Size) {
-	if s.vbox == nil {
+func (l *LyricsViewer) updateSpacerSize(size fyne.Size) {
+	if l.vbox == nil {
 		return // renderer not created yet
 	}
 
-	topSpaceHeight := theme.Padding() + (size.Height-s.singleLineLyricHeight)/2
-	s.vbox.Objects[0].(*vSpace).Height = topSpaceHeight
-	// end spacer only needs to be big enough - can't be too big
-	// so use a very simple height calculation
-	s.vbox.Objects[len(s.vbox.Objects)-1].(*vSpace).Height = size.Height
+	var topSpaceHeight, bottomSpaceHeight float32
+	if l.synced {
+		topSpaceHeight = theme.Padding() + (size.Height-l.singleLineLyricHeight)/2
+		// end spacer only needs to be big enough - can't be too big
+		// so use a very simple height calculation
+		bottomSpaceHeight = size.Height
+	}
+	l.vbox.Objects[0].(*vSpace).Height = topSpaceHeight
+	l.vbox.Objects[len(l.vbox.Objects)-1].(*vSpace).Height = bottomSpaceHeight
 }
 
-func (s *SyncedLyricsViewer) updateContent() {
-	if s.vbox == nil {
+func (l *LyricsViewer) updateContent() {
+	if l.vbox == nil {
 		return // renderer not created yet
 	}
-	s.checkStopAnimation()
+	l.checkStopAnimation()
 
-	l := len(s.vbox.Objects)
-	if l == 0 {
-		s.vbox.Objects = append(s.vbox.Objects, NewVSpace(0), NewVSpace(0))
-		l = 2
+	lnObj := len(l.vbox.Objects)
+	if lnObj == 0 {
+		l.vbox.Objects = append(l.vbox.Objects, NewVSpace(0), NewVSpace(0))
+		lnObj = 2
 	}
-	s.updateSpacerSize(s.Size())
-	endSpacer := s.vbox.Objects[l-1]
-	for i, line := range s.Lines {
+	l.updateSpacerSize(l.Size())
+	endSpacer := l.vbox.Objects[lnObj-1]
+	for i, line := range l.lines {
 		lineNum := i + 1 // one-indexed
-		if lineNum < l-1 {
-			rt := s.vbox.Objects[lineNum].(*widget.RichText)
+		if lineNum < lnObj-1 {
+			rt := l.vbox.Objects[lineNum].(*widget.RichText)
 			color := theme.ColorNameDisabled
-			if s.currentLine == lineNum {
+			if !l.synced || l.currentLine == lineNum {
 				color = theme.ColorNameForeground
 			}
-			s.setLineColor(rt, color, false)
-			s.setLineText(rt, line)
-		} else if (i + 1) < l {
+			l.setLineColor(rt, color, false)
+			l.setLineText(rt, line)
+		} else if (i + 1) < lnObj {
 			// replacing end spacer (last element in Objects) with a new richtext
-			s.vbox.Objects[i+1] = s.newLyricLine(line)
+			l.vbox.Objects[i+1] = l.newLyricLine(line)
 		} else {
 			// extending the Objects slice
-			s.vbox.Objects = append(s.vbox.Objects, s.newLyricLine(line))
+			l.vbox.Objects = append(l.vbox.Objects, l.newLyricLine(line))
 		}
 	}
-	for i := len(s.Lines) + 1; i < l; i++ {
-		s.vbox.Objects[i] = nil
+	for i := len(l.lines) + 1; i < lnObj; i++ {
+		l.vbox.Objects[i] = nil
 	}
-	s.vbox.Objects = s.vbox.Objects[:len(s.Lines)+1]
-	s.vbox.Objects = append(s.vbox.Objects, endSpacer)
-	s.vbox.Refresh()
-	s.scroll.Offset.Y = s.offsetForLine(s.currentLine)
-	s.scroll.Refresh()
+	l.vbox.Objects = l.vbox.Objects[:len(l.lines)+1]
+	l.vbox.Objects = append(l.vbox.Objects, endSpacer)
+	l.vbox.Refresh()
+	l.scroll.Offset.Y = l.offsetForLine(l.currentLine)
+	l.scroll.Refresh()
 }
 
-func (s *SyncedLyricsViewer) setupScrollAnimation(currentLine, nextLine *widget.RichText) {
+func (l *LyricsViewer) setupScrollAnimation(currentLine, nextLine *widget.RichText) {
 	// calculate total scroll distance for the animation
 	scrollDist := theme.Padding()
 	if currentLine != nil {
 		scrollDist += currentLine.Size().Height / 2
 	} else {
-		scrollDist += s.singleLineLyricHeight / 2
+		scrollDist += l.singleLineLyricHeight / 2
 	}
 	if nextLine != nil {
 		scrollDist += nextLine.Size().Height / 2
 	} else {
-		scrollDist += s.singleLineLyricHeight / 2
+		scrollDist += l.singleLineLyricHeight / 2
 	}
 
-	s.animStartOffset = s.scroll.Offset.Y
+	l.animStartOffset = l.scroll.Offset.Y
 	var alreadyUpdated bool
-	s.anim = fyne.NewAnimation(140*time.Millisecond, func(f float32) {
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
-		s.scroll.Offset.Y = s.animStartOffset + f*scrollDist
-		s.scroll.Refresh()
+	l.anim = fyne.NewAnimation(140*time.Millisecond, func(f float32) {
+		l.mutex.Lock()
+		defer l.mutex.Unlock()
+		l.scroll.Offset.Y = l.animStartOffset + f*scrollDist
+		l.scroll.Refresh()
 		if !alreadyUpdated && f >= 0.5 {
 			if nextLine != nil {
-				s.setLineColor(nextLine, theme.ColorNameForeground, true)
+				l.setLineColor(nextLine, theme.ColorNameForeground, true)
 			}
 			if currentLine != nil {
-				s.setLineColor(currentLine, theme.ColorNameDisabled, true)
+				l.setLineColor(currentLine, theme.ColorNameDisabled, true)
 			}
 			alreadyUpdated = true
 		}
 		if f == 1 /*end of animation*/ {
-			s.anim = nil
+			l.anim = nil
 		}
 	})
-	s.anim.Curve = fyne.AnimationEaseInOut
+	l.anim.Curve = fyne.AnimationEaseInOut
 }
 
-func (s *SyncedLyricsViewer) offsetForLine(lineNum int /*one-indexed*/) float32 {
+func (l *LyricsViewer) offsetForLine(lineNum int /*one-indexed*/) float32 {
 	if lineNum == 0 {
 		return 0
 	}
 	pad := theme.Padding()
-	offset := pad + s.singleLineLyricHeight/2
+	offset := pad + l.singleLineLyricHeight/2
 	for i := 1; i <= lineNum; i++ {
 		if i > 1 {
-			offset += s.vbox.Objects[i-1].MinSize().Height/2 + pad
+			offset += l.vbox.Objects[i-1].MinSize().Height/2 + pad
 		}
-		offset += s.vbox.Objects[i].MinSize().Height / 2
+		offset += l.vbox.Objects[i].MinSize().Height / 2
 	}
 	return offset
 }
 
-func (s *SyncedLyricsViewer) newLyricLine(text string) *widget.RichText {
+func (l *LyricsViewer) newLyricLine(text string) *widget.RichText {
 	ts := &widget.TextSegment{
 		Text:  text,
 		Style: widget.RichTextStyleSubHeading,
@@ -240,33 +266,36 @@ func (s *SyncedLyricsViewer) newLyricLine(text string) *widget.RichText {
 	return rt
 }
 
-func (s *SyncedLyricsViewer) setLineText(line *widget.RichText, text string) {
+func (l *LyricsViewer) setLineText(line *widget.RichText, text string) {
 	line.Segments[0].(*widget.TextSegment).Text = text
 	line.Refresh()
 }
 
-func (s *SyncedLyricsViewer) setLineColor(rt *widget.RichText, colorName fyne.ThemeColorName, refresh bool) {
+func (l *LyricsViewer) setLineColor(rt *widget.RichText, colorName fyne.ThemeColorName, refresh bool) {
 	rt.Segments[0].(*widget.TextSegment).Style.ColorName = colorName
 	if refresh {
 		rt.Refresh()
 	}
 }
 
-func (s *SyncedLyricsViewer) checkStopAnimation() bool {
-	if s.anim != nil {
-		s.anim.Stop()
-		s.anim = nil
+func (l *LyricsViewer) checkStopAnimation() bool {
+	if l.anim != nil {
+		l.anim.Stop()
+		l.anim = nil
 		return true
 	}
 	return false
 }
 
-func (s *SyncedLyricsViewer) CreateRenderer() fyne.WidgetRenderer {
-	s.singleLineLyricHeight = s.newLyricLine("W").MinSize().Height
-	s.vbox = container.NewVBox()
-	s.scroll = NewNoScroll(s.vbox)
-	s.updateContent()
-	return widget.NewSimpleRenderer(s.scroll)
+func (l *LyricsViewer) CreateRenderer() fyne.WidgetRenderer {
+	l.singleLineLyricHeight = l.newLyricLine("W").MinSize().Height
+	l.vbox = container.NewVBox()
+	l.scroll = NewNoScroll(l.vbox)
+	if !l.synced {
+		l.scroll.Direction = container.ScrollVerticalOnly
+	}
+	l.updateContent()
+	return widget.NewSimpleRenderer(l.scroll)
 }
 
 // overridden container.Scroll to not respond to mouse wheel/trackpad
@@ -285,8 +314,10 @@ func NewNoScroll(content fyne.CanvasObject) *NoScroll {
 	return n
 }
 
-func (n *NoScroll) Scrolled(_ *fyne.ScrollEvent) {
-	// ignore scroll event
+func (n *NoScroll) Scrolled(e *fyne.ScrollEvent) {
+	if n.Direction != container.ScrollNone {
+		n.Scroll.Scrolled(e)
+	}
 }
 
 type vSpace struct {

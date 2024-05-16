@@ -33,7 +33,7 @@ func main() {
 	win := app.NewWindow("Synced Lyrics Demo")
 
 	l := fynesyncedlyrics.NewSyncedLyricsViewer()
-	l.SetLyrics(lyrics)
+	l.SetLyrics(lyrics, true /*synced*/)
 
 	win.SetContent(l)
 	win.Resize(fyne.NewSize(200, 300))
@@ -46,7 +46,7 @@ func main() {
 			if counter == 16 {
 				l.SetCurrentLine(3)
 			} else if counter == 24 {
-				l.SetLyrics(lyrics)
+				l.SetLyrics(lyrics, false)
 			} else {
 				l.NextLine()
 			}
