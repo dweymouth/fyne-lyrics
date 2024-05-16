@@ -44,7 +44,7 @@ func main() {
 		for {
 			<-tick.C
 			if counter == 16 {
-				l.SetCurrentLine(3)
+				l.SetCurrentLine(0)
 			} else if counter == 24 {
 				l.SetLyrics(lyrics, false)
 			} else {

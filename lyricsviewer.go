@@ -67,6 +67,9 @@ func (l *LyricsViewer) SetLyrics(lines []string, synced bool) {
 // before the first line. In unsynced mode this is a no-op. This function is
 // typically called when the user has seeked the playing song to a new position.
 func (l *LyricsViewer) SetCurrentLine(line int) {
+	if line < 0 || line > len(l.lines) {
+		panic("SetCurrentLine: line number out of range")
+	}
 	if l.vbox == nil || !l.synced {
 		l.currentLine = line
 		return // renderer not created yet or unsynced mode
@@ -78,9 +81,13 @@ func (l *LyricsViewer) SetCurrentLine(line int) {
 		// make sure prev line is right color
 		l.setLineColor(l.vbox.Objects[l.currentLine-1].(*widget.RichText), theme.ColorNameDisabled, true)
 	}
-	l.setLineColor(l.vbox.Objects[l.currentLine].(*widget.RichText), theme.ColorNameDisabled, true)
+	if l.currentLine != 0 {
+		l.setLineColor(l.vbox.Objects[l.currentLine].(*widget.RichText), theme.ColorNameDisabled, true)
+	}
 	l.currentLine = line
-	l.setLineColor(l.vbox.Objects[l.currentLine].(*widget.RichText), theme.ColorNameForeground, true)
+	if l.currentLine != 0 {
+		l.setLineColor(l.vbox.Objects[l.currentLine].(*widget.RichText), theme.ColorNameForeground, true)
+	}
 	l.scroll.Offset.Y = l.offsetForLine(l.currentLine)
 	l.scroll.Refresh()
 }
