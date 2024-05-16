@@ -40,10 +40,10 @@ func NewSyncedLyricsViewer() *SyncedLyricsViewer {
 
 func (s *SyncedLyricsViewer) SetLyrics(lines []string) {
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.Lines = lines
-	s.mutex.Unlock()
-
-	s.Refresh()
+	s.currentLine = 0
+	s.updateContent()
 }
 
 // SetCurrentLine sets the current line that the lyric viewer is scrolled to.
@@ -52,15 +52,15 @@ func (s *SyncedLyricsViewer) SetLyrics(lines []string) {
 func (s *SyncedLyricsViewer) SetCurrentLine(line int) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if s.checkStopAnimation() {
+	if s.checkStopAnimation() && s.currentLine > 1 {
 		// we were in the middle of animation
 		// make sure prev line is right color
-		s.setLineColor(s.vbox.Objects[s.currentLine-1].(*widget.RichText), theme.ColorNameDisabled)
+		s.setLineColor(s.vbox.Objects[s.currentLine-1].(*widget.RichText), theme.ColorNameDisabled, true)
 	}
-	s.setLineColor(s.vbox.Objects[s.currentLine].(*widget.RichText), theme.ColorNameDisabled)
+	s.setLineColor(s.vbox.Objects[s.currentLine].(*widget.RichText), theme.ColorNameDisabled, true)
 	s.currentLine = line
-	s.setLineColor(s.vbox.Objects[s.currentLine].(*widget.RichText), theme.ColorNameForeground)
-	s.scroll.Offset = fyne.NewPos(0, s.offsetForLine(s.currentLine))
+	s.setLineColor(s.vbox.Objects[s.currentLine].(*widget.RichText), theme.ColorNameForeground, true)
+	s.scroll.Offset.Y = s.offsetForLine(s.currentLine)
 	s.scroll.Refresh()
 }
 
@@ -75,8 +75,16 @@ func (s *SyncedLyricsViewer) NextLine() {
 	if s.currentLine == len(s.Lines) {
 		return // already at last line
 	}
+	if s.checkStopAnimation() {
+		// we were in the middle of animation - short-circuit it to completed
+		// make sure prev and current lines are right color and scrolled to the end
+		if s.currentLine > 1 {
+			s.setLineColor(s.vbox.Objects[s.currentLine-1].(*widget.RichText), theme.ColorNameDisabled, true)
+		}
+		s.setLineColor(s.vbox.Objects[s.currentLine].(*widget.RichText), theme.ColorNameForeground, true)
+		s.scroll.Offset.Y = s.offsetForLine(s.currentLine)
+	}
 	s.currentLine++
-	s.checkStopAnimation()
 
 	var prevLine, nextLine *widget.RichText
 	if s.currentLine > 1 {
@@ -94,7 +102,6 @@ func (s *SyncedLyricsViewer) Refresh() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.updateContent()
-	s.BaseWidget.Refresh()
 }
 
 func (s *SyncedLyricsViewer) MinSize() fyne.Size {
@@ -133,6 +140,7 @@ func (s *SyncedLyricsViewer) updateContent() {
 	if s.vbox == nil {
 		return // renderer not created yet
 	}
+	s.checkStopAnimation()
 
 	l := len(s.vbox.Objects)
 	if l == 0 {
@@ -142,8 +150,15 @@ func (s *SyncedLyricsViewer) updateContent() {
 	s.updateSpacerSize(s.Size())
 	endSpacer := s.vbox.Objects[l-1]
 	for i, line := range s.Lines {
-		if (i + 1) < l-1 {
-			s.setLineText(s.vbox.Objects[i+1].(*widget.RichText), line)
+		lineNum := i + 1 // one-indexed
+		if lineNum < l-1 {
+			rt := s.vbox.Objects[lineNum].(*widget.RichText)
+			color := theme.ColorNameDisabled
+			if s.currentLine == lineNum {
+				color = theme.ColorNameForeground
+			}
+			s.setLineColor(rt, color, false)
+			s.setLineText(rt, line)
 		} else if (i + 1) < l {
 			// replacing end spacer (last element in Objects) with a new richtext
 			s.vbox.Objects[i+1] = s.newLyricLine(line)
@@ -158,6 +173,8 @@ func (s *SyncedLyricsViewer) updateContent() {
 	s.vbox.Objects = s.vbox.Objects[:len(s.Lines)+1]
 	s.vbox.Objects = append(s.vbox.Objects, endSpacer)
 	s.vbox.Refresh()
+	s.scroll.Offset.Y = s.offsetForLine(s.currentLine)
+	s.scroll.Refresh()
 }
 
 func (s *SyncedLyricsViewer) setupScrollAnimation(currentLine, nextLine *widget.RichText) {
@@ -183,10 +200,10 @@ func (s *SyncedLyricsViewer) setupScrollAnimation(currentLine, nextLine *widget.
 		s.scroll.Refresh()
 		if !alreadyUpdated && f >= 0.5 {
 			if nextLine != nil {
-				s.setLineColor(nextLine, theme.ColorNameForeground)
+				s.setLineColor(nextLine, theme.ColorNameForeground, true)
 			}
 			if currentLine != nil {
-				s.setLineColor(currentLine, theme.ColorNameDisabled)
+				s.setLineColor(currentLine, theme.ColorNameDisabled, true)
 			}
 			alreadyUpdated = true
 		}
@@ -228,9 +245,11 @@ func (s *SyncedLyricsViewer) setLineText(line *widget.RichText, text string) {
 	line.Refresh()
 }
 
-func (s *SyncedLyricsViewer) setLineColor(rt *widget.RichText, colorName fyne.ThemeColorName) {
+func (s *SyncedLyricsViewer) setLineColor(rt *widget.RichText, colorName fyne.ThemeColorName, refresh bool) {
 	rt.Segments[0].(*widget.TextSegment).Style.ColorName = colorName
-	rt.Refresh()
+	if refresh {
+		rt.Refresh()
+	}
 }
 
 func (s *SyncedLyricsViewer) checkStopAnimation() bool {
