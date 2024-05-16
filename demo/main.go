@@ -5,7 +5,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	fynesyncedlyrics "github.com/dweymouth/fyne-synced-lyrics"
+	fynelyrics "github.com/dweymouth/fyne-lyrics"
 )
 
 var lyrics = []string{
@@ -32,7 +32,7 @@ func main() {
 	app := app.New()
 	win := app.NewWindow("Synced Lyrics Demo")
 
-	l := fynesyncedlyrics.NewSyncedLyricsViewer()
+	l := fynelyrics.NewSyncedLyricsViewer()
 	l.SetLyrics(lyrics, true /*synced*/)
 
 	win.SetContent(l)

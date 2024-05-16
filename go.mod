@@ -1,4 +1,4 @@
-module github.com/dweymouth/fyne-synced-lyrics
+module github.com/dweymouth/fyne-lyrics
 
 go 1.21.1
 
