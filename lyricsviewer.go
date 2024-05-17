@@ -11,6 +11,17 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+type ActiveLyricPosition int
+
+const (
+	// ActiveLyricPositionMiddle positions the active lyric line in the middle of the widget
+	ActiveLyricPositionMiddle ActiveLyricPosition = iota
+
+	// ActiveLyricPositionTopThird positions the active lyric roughly 1/3 of the way
+	// from the top of the widget
+	ActiveLyricPositionTopThird
+)
+
 // LyricsViewer is a widget for displaying song lyrics.
 // It supports synced and unsynced mode. In synced mode, the active line
 // is highlighted and the widget can advance to the next line
@@ -31,6 +42,10 @@ type LyricsViewer struct {
 	// InactiveLyricColorName is the theme color name that the inactive lyric lines
 	// will be drawn in synced mode. Defaults to theme.ColorNameDisabled.
 	InactiveLyricColorName fyne.ThemeColorName
+
+	// ActiveLyricPosition sets the vertical positioning of the active lyric line
+	// in synced mode.
+	ActiveLyricPosition ActiveLyricPosition
 
 	lines  []string
 	synced bool
@@ -174,9 +189,14 @@ func (l *LyricsViewer) updateSpacerSize(size fyne.Size) {
 		return // renderer not created yet
 	}
 
+	ht := size.Height / 2
+	if l.ActiveLyricPosition == ActiveLyricPositionTopThird {
+		ht = size.Height / 3
+	}
+
 	var topSpaceHeight, bottomSpaceHeight float32
 	if l.synced {
-		topSpaceHeight = (size.Height + l.singleLineLyricHeight) / 2
+		topSpaceHeight = ht + l.singleLineLyricHeight/2
 		// end spacer only needs to be big enough - can't be too big
 		// so use a very simple height calculation
 		bottomSpaceHeight = size.Height
