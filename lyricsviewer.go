@@ -157,6 +157,9 @@ func (l *LyricsViewer) Resize(size fyne.Size) {
 	defer l.mutex.Unlock()
 	l.updateSpacerSize(size)
 	l.BaseWidget.Resize(size)
+	if l.vbox == nil {
+		return // renderer not created yet
+	}
 	if l.anim == nil {
 		l.scroll.Offset = fyne.NewPos(0, l.offsetForLine(l.currentLine))
 		l.scroll.Refresh()
