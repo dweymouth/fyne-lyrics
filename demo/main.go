@@ -43,10 +43,17 @@ func main() {
 	go func() {
 		for {
 			<-tick.C
-			if counter == 16 {
+			if counter == 5 {
+				// demonstrate centering lyrics
+				l.Alignment = fyne.TextAlignCenter
+				l.Refresh()
+			} else if counter == 17 {
+				// demonstrate resetting the widget
 				l.SetCurrentLine(0)
 			} else if counter == 24 {
+				// demonstrate unsynced mode
 				l.SetLyrics(lyrics, false)
+				break
 			} else {
 				l.NextLine()
 			}
