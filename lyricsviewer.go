@@ -176,7 +176,7 @@ func (l *LyricsViewer) updateSpacerSize(size fyne.Size) {
 
 	var topSpaceHeight, bottomSpaceHeight float32
 	if l.synced {
-		topSpaceHeight = theme.Padding() + (size.Height-l.singleLineLyricHeight)/2
+		topSpaceHeight = (size.Height + l.singleLineLyricHeight) / 2
 		// end spacer only needs to be big enough - can't be too big
 		// so use a very simple height calculation
 		bottomSpaceHeight = size.Height
