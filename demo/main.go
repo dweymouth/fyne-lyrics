@@ -48,8 +48,8 @@ func main() {
 				l.Alignment = fyne.TextAlignCenter
 				l.Refresh()
 			} else if counter == 17 {
-				// demonstrate resetting the widget
-				l.SetCurrentLine(0)
+				// demonstrate changing current line
+				l.SetCurrentLine(1)
 			} else if counter == 24 {
 				// demonstrate unsynced mode
 				l.SetLyrics(lyrics, false)
