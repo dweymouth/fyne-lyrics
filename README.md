@@ -1,6 +1,12 @@
 # fyne-lyrics
 A lyrics widget for Fyne supporting synced and unsynced mode.
 
+## Screenshots
+
+<div class="row">
+<div class="column"><img src="screenshots/synced.png" scale=25%/></div> <div class="column"><img src="screenshots/unsynced.png" scale=25%/></div>
+</div>
+
 ## Usage (synced lyrics)
 
 ```go
