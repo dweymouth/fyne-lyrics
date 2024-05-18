@@ -34,6 +34,9 @@ type LyricsViewer struct {
 	// Alignment controls the text alignment of the lyric lines
 	Alignment fyne.TextAlign
 
+	// TextSizeName is the theme size name that controls the size of the lyric lines
+	TextSizeName fyne.ThemeSizeName
+
 	// ActiveLyricColorName is the theme color name that the currently active
 	// lyric line will be drawn in synced mode, or all lyrics in non-synced mode.
 	// Defaults to theme.ColorNameForeground.
@@ -220,20 +223,21 @@ func (l *LyricsViewer) updateContent() {
 	endSpacer := l.vbox.Objects[lnObj-1]
 	for i, line := range l.lines {
 		lineNum := i + 1 // one-indexed
+		useActiveColor := !l.synced || l.currentLine == lineNum
 		if lineNum < lnObj-1 {
 			rt := l.vbox.Objects[lineNum].(*widget.RichText)
-			color := l.inactiveLyricColor()
-			if !l.synced || l.currentLine == lineNum {
-				color = l.activeLyricColor()
+			if useActiveColor {
+				l.setLineColor(rt, l.activeLyricColor(), false)
+			} else {
+				l.setLineColor(rt, l.inactiveLyricColor(), false)
 			}
-			l.setLineColor(rt, color, false)
 			l.setLineTextAndAlignment(rt, line)
-		} else if (i + 1) < lnObj {
+		} else if lineNum < lnObj {
 			// replacing end spacer (last element in Objects) with a new richtext
-			l.vbox.Objects[i+1] = l.newLyricLine(line)
+			l.vbox.Objects[lineNum] = l.newLyricLine(line, useActiveColor)
 		} else {
 			// extending the Objects slice
-			l.vbox.Objects = append(l.vbox.Objects, l.newLyricLine(line))
+			l.vbox.Objects = append(l.vbox.Objects, l.newLyricLine(line, useActiveColor))
 		}
 	}
 	for i := len(l.lines) + 1; i < lnObj; i++ {
@@ -298,12 +302,17 @@ func (l *LyricsViewer) offsetForLine(lineNum int /*one-indexed*/) float32 {
 	return offset
 }
 
-func (l *LyricsViewer) newLyricLine(text string) *widget.RichText {
+func (l *LyricsViewer) newLyricLine(text string, useActiveColor bool) *widget.RichText {
 	ts := &widget.TextSegment{
-		Text:  text,
-		Style: widget.RichTextStyleSubHeading,
+		Text: text,
 	}
-	ts.Style.ColorName = l.inactiveLyricColor()
+	ts.Style.SizeName = l.textSizeName()
+
+	if useActiveColor {
+		ts.Style.ColorName = l.activeLyricColor()
+	} else {
+		ts.Style.ColorName = l.inactiveLyricColor()
+	}
 	ts.Style.Alignment = l.Alignment
 	rt := widget.NewRichText(ts)
 	rt.Wrapping = fyne.TextWrapWord
@@ -313,6 +322,7 @@ func (l *LyricsViewer) newLyricLine(text string) *widget.RichText {
 func (l *LyricsViewer) setLineTextAndAlignment(line *widget.RichText, text string) {
 	ts := line.Segments[0].(*widget.TextSegment)
 	ts.Text = text
+	ts.Style.SizeName = l.textSizeName()
 	ts.Style.Alignment = l.Alignment
 	line.Refresh()
 }
@@ -336,6 +346,13 @@ func (l *LyricsViewer) inactiveLyricColor() fyne.ThemeColorName {
 		return l.InactiveLyricColorName
 	}
 	return theme.ColorNameDisabled
+}
+
+func (l *LyricsViewer) textSizeName() fyne.ThemeSizeName {
+	if l.TextSizeName != "" {
+		return l.TextSizeName
+	}
+	return theme.SizeNameSubHeadingText
 }
 
 func (l *LyricsViewer) checkStopAnimation() bool {
