@@ -305,16 +305,17 @@ func (l *LyricsViewer) offsetForLine(lineNum int /*one-indexed*/) float32 {
 
 func (l *LyricsViewer) newLyricLine(text string, useActiveColor bool) *widget.RichText {
 	ts := &widget.TextSegment{
-		Text: text,
+		Text:  text,
+		Style: widget.RichTextStyleSubHeading,
 	}
 	ts.Style.SizeName = l.textSizeName()
-
 	if useActiveColor {
 		ts.Style.ColorName = l.activeLyricColor()
 	} else {
 		ts.Style.ColorName = l.inactiveLyricColor()
 	}
 	ts.Style.Alignment = l.Alignment
+
 	rt := widget.NewRichText(ts)
 	rt.Wrapping = fyne.TextWrapWord
 	return rt
