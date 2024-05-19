@@ -17,9 +17,9 @@ const (
 	// ActiveLyricPositionMiddle positions the active lyric line in the middle of the widget
 	ActiveLyricPositionMiddle ActiveLyricPosition = iota
 
-	// ActiveLyricPositionTopThird positions the active lyric roughly 1/3 of the way
-	// from the top of the widget
-	ActiveLyricPositionTopThird
+	// ActiveLyricPositionUpperMiddle positions the active lyric line
+	// in the upper-middle of the widget, roughly 1/3 of the way down
+	ActiveLyricPositionUpperMiddle
 )
 
 // LyricsViewer is a widget for displaying song lyrics.
@@ -194,7 +194,7 @@ func (l *LyricsViewer) updateSpacerSize(size fyne.Size) {
 	}
 
 	ht := size.Height / 2
-	if l.ActiveLyricPosition == ActiveLyricPositionTopThird {
+	if l.ActiveLyricPosition == ActiveLyricPositionUpperMiddle {
 		ht = size.Height / 3
 	}
 
