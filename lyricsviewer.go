@@ -34,7 +34,8 @@ type LyricsViewer struct {
 	// Alignment controls the text alignment of the lyric lines
 	Alignment fyne.TextAlign
 
-	// TextSizeName is the theme size name that controls the size of the lyric lines
+	// TextSizeName is the theme size name that controls the size of the lyric lines.
+	// Defaults to theme.SizeNameSubHeadingText.
 	TextSizeName fyne.ThemeSizeName
 
 	// ActiveLyricColorName is the theme color name that the currently active
@@ -365,7 +366,7 @@ func (l *LyricsViewer) checkStopAnimation() bool {
 }
 
 func (l *LyricsViewer) CreateRenderer() fyne.WidgetRenderer {
-	l.singleLineLyricHeight = l.newLyricLine("W").MinSize().Height
+	l.singleLineLyricHeight = l.newLyricLine("W", false).MinSize().Height
 	l.vbox = container.NewVBox()
 	l.scroll = NewNoScroll(l.vbox)
 	if !l.synced {
