@@ -1,6 +1,6 @@
 module github.com/dweymouth/fyne-lyrics
 
-go 1.21.1
+go 1.19
 
 require fyne.io/fyne/v2 v2.4.5
 
