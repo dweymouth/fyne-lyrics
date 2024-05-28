@@ -59,7 +59,7 @@ type LyricsViewer struct {
 	// that will be scrolled when the animation is finished
 	currentLine int
 
-	singleLineLyricHeight float32
+	prototypeLyricLineSize fyne.Size
 
 	scroll *NoScroll
 	vbox   *fyne.Container
@@ -73,6 +73,7 @@ type LyricsViewer struct {
 func NewLyricsViewer() *LyricsViewer {
 	s := &LyricsViewer{}
 	s.ExtendBaseWidget(s)
+	s.prototypeLyricLineSize = s.newLyricLine("Hello...", false).MinSize()
 	return s
 }
 
@@ -167,8 +168,11 @@ func (l *LyricsViewer) Refresh() {
 
 func (l *LyricsViewer) MinSize() fyne.Size {
 	// overridden because NoScroll will have minSize encompass the full lyrics
-	minHeight := l.singleLineLyricHeight*3 + theme.Padding()*2
-	return fyne.NewSize(l.BaseWidget.MinSize().Width, minHeight)
+	// note also that leaving this to the renderer MinSize, based on the
+	// VBox with RichText lines inside Scroll, may lead to race conditions
+	// (https://github.com/fyne-io/fyne/issues/4890)
+	minHeight := l.prototypeLyricLineSize.Height*3 + theme.Padding()*2
+	return fyne.NewSize(l.prototypeLyricLineSize.Width, minHeight)
 }
 
 func (l *LyricsViewer) Resize(size fyne.Size) {
@@ -200,7 +204,7 @@ func (l *LyricsViewer) updateSpacerSize(size fyne.Size) {
 
 	var topSpaceHeight, bottomSpaceHeight float32
 	if l.synced {
-		topSpaceHeight = ht + l.singleLineLyricHeight/2
+		topSpaceHeight = ht + l.prototypeLyricLineSize.Height/2
 		// end spacer only needs to be big enough - can't be too big
 		// so use a very simple height calculation
 		bottomSpaceHeight = size.Height
@@ -257,12 +261,12 @@ func (l *LyricsViewer) setupScrollAnimation(currentLine, nextLine *widget.RichTe
 	if currentLine != nil {
 		scrollDist += currentLine.Size().Height / 2
 	} else {
-		scrollDist += l.singleLineLyricHeight / 2
+		scrollDist += l.prototypeLyricLineSize.Height / 2
 	}
 	if nextLine != nil {
 		scrollDist += nextLine.Size().Height / 2
 	} else {
-		scrollDist += l.singleLineLyricHeight / 2
+		scrollDist += l.prototypeLyricLineSize.Height / 2
 	}
 
 	l.animStartOffset = l.scroll.Offset.Y
@@ -293,7 +297,7 @@ func (l *LyricsViewer) offsetForLine(lineNum int /*one-indexed*/) float32 {
 		return 0
 	}
 	pad := theme.Padding()
-	offset := pad + l.singleLineLyricHeight/2
+	offset := pad + l.prototypeLyricLineSize.Height/2
 	for i := 1; i <= lineNum; i++ {
 		if i > 1 {
 			offset += l.vbox.Objects[i-1].MinSize().Height/2 + pad
@@ -367,7 +371,6 @@ func (l *LyricsViewer) checkStopAnimation() bool {
 }
 
 func (l *LyricsViewer) CreateRenderer() fyne.WidgetRenderer {
-	l.singleLineLyricHeight = l.newLyricLine("W", false).MinSize().Height
 	l.vbox = container.NewVBox()
 	l.scroll = NewNoScroll(l.vbox)
 	if !l.synced {
@@ -378,6 +381,8 @@ func (l *LyricsViewer) CreateRenderer() fyne.WidgetRenderer {
 }
 
 // overridden container.Scroll to not respond to mouse wheel/trackpad
+// after Fyne 2.5, this will no longer be needed as the base container.Scroll
+// will not respond to mouse wheel/trackpad when Direction is ScrollNone
 type NoScroll struct {
 	container.Scroll
 }

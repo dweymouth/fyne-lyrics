@@ -33,7 +33,7 @@ func main() {
 	win := app.NewWindow("Synced Lyrics Demo")
 
 	l := fynelyrics.NewLyricsViewer()
-	l.ActiveLyricPosition = fynelyrics.ActiveLyricPositionTopThird
+	l.ActiveLyricPosition = fynelyrics.ActiveLyricPositionUpperMiddle
 	l.SetLyrics(lyrics, true /*synced*/)
 
 	win.SetContent(l)
